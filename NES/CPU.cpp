@@ -542,3 +542,79 @@ void CPU::SetFlag(FLAGS flag, bool value)
 }
 
 // Addressing Modes
+// Ref: https://www.nesdev.org/obelisk-6502-guide/addressing.html, http://archive.6502.org/datasheets/rockwell_r650x_r651x.pdf
+
+// Implied addressing mode
+uint8_t CPU::IMP()
+{
+	fetched = a;
+	return 0;
+}
+
+// Immediate Mode
+// Second byte of instruction contains the operand
+// we can use this to load the next instruction 
+uint8_t CPU::IMM()
+{
+	addr_abs = program_counter++;
+	return 0;
+}
+
+// Zero Page
+// Instruction with this addressing mode only uses 8 bit address
+// Meaning first 256 bytes 0x0000 - 0x00FF
+uint8_t CPU::ZP0()
+{
+	addr_abs = read(program_counter);
+	program_counter++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+// ZPX - Zero Page with X Offset
+// Same as ZP0
+// Effective address is calculatedby adding the second byte to contents of the X register
+uint8_t CPU::ZPX()
+{
+	addr_abs = (read(program_counter) + x);
+	program_counter++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+// ZPY - Zero Page with Y Offset
+// Same as ZPX but with Y Register
+uint8_t CPU::ZPY()
+{
+	addr_abs = (read(program_counter) + y);
+	program_counter++;
+	addr_abs &= 0x00FF;
+	return 0;
+}
+
+// Relative
+
+uint8_t CPU::REL()
+{
+	addr_rel = read(program_counter);
+	program_counter++;
+	// Check second byte which is an operand
+	// check if the operand is in the range
+	if (addr_rel & 0x80)
+		addr_rel |= 0xFF00;
+	
+	return 0;
+}
+
+// Absolute
+// Read a full 16 bit addressing mode
+uint8_t CPU::ABS()
+{
+	uint16_t lo = read(program_counter++);
+	uint16_t hi = read(program_counter++);
+
+	addr_abs = (hi << 8) | lo;
+
+	return 0;
+}
+
