@@ -618,3 +618,37 @@ uint8_t CPU::ABS()
 	return 0;
 }
 
+// Absolute with X offset
+//Same as absolute addressing but with X register offset
+uint8_t CPU::ABX()
+{
+	uint16_t lo = read(program_counter++);
+	uint16_t hi = read(program_counter++);
+
+	addr_abs = (hi << 8) | lo;
+	addr_abs += x;
+
+	if ((addr_abs & 0xFF00) != (hi << 8))
+		return 1;
+	else
+		return 0;
+}
+
+// Absolute with Y offset
+//Same as absolute addressing but with Y register as offset
+uint8_t CPU::ABY()
+{
+	uint16_t lo = read(program_counter);
+	program_counter++;
+	uint16_t hi = read(program_counter);
+	program_counter++;
+
+	addr_abs = (hi << 8) | lo;
+	addr_abs += y;
+
+	if ((addr_abs & 0xFF00) != (hi << 8))
+		return 1;
+	else
+		return 0;
+}
+
