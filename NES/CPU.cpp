@@ -652,3 +652,57 @@ uint8_t CPU::ABY()
 		return 0;
 }
 
+// Indirect
+// The instruction contains the 16 bit address of the least significant byte of another 16 bit memory address
+// Let's say the instruction is pointing to $0120 which contains $FC
+// Then it will read the next address too which is $0121 which contains $FF
+// So it will load $FFFC 
+uint8_t CPU::IND()
+{
+	uint16_t lo_ptr = read(program_counter++);
+	uint16_t hi_ptr = read(program_counter++);
+
+	uint16_t ptr = (hi_ptr << 8) | lo_ptr;
+
+	if (lo_ptr == 0x00FF) // Page boundry
+	{
+		addr_abs = (read(ptr & 0xFF00) << 8) | read(ptr + 0);
+	}
+	else // Normal Behavior
+	{
+		addr_abs = (read(ptr + 1) << 8) | read(ptr + 0);
+	}
+
+	return 0;
+}
+
+// Indirect X
+uint8_t CPU::IZX()
+{
+	uint16_t t = read(program_counter++);
+
+	uint16_t lo = read((uint16_t)(t + (uint16_t)x) & 0x00FF);
+	uint16_t hi = read((uint16_t)(t + (uint16_t)x + 1) & 0x00FF);
+
+	addr_abs = (hi << 8) | lo;
+
+	return 0;
+}
+
+// Indirect Y
+uint8_t CPU::IZY()
+{
+	uint16_t t = read(program_counter++);
+
+	uint16_t lo = read(t & 0x00FF);
+	uint16_t hi = read(t + 1) & 0x00FF;
+
+	addr_abs = (hi << 8) | lo;
+	addr_abs += y;
+
+	if ((addr_abs & 0xFF00) != (hi << 8))
+		return 1;
+	else
+		return 0;
+}
+
