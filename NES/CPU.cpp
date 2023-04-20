@@ -706,3 +706,73 @@ uint8_t CPU::IZY()
 		return 0;
 }
 
+
+// Fetch
+uint8_t CPU::fetch()
+{
+	if (!(lookup[opcode].addrmode == &CPU::IMP))
+		fetched = read(addr_abs);
+
+	return fetched;
+}
+
+// Instructions
+
+// ADC 
+// A,Z,C,N = A + M + C
+// Flags:  C, Z, V, N
+uint8_t CPU::ADC()
+{
+	fetch();
+
+	temp = (uint16_t)a + (uint16_t)fetched + (uint16_t)GetFlag(C);
+
+	// Set Carry Flag
+	// Set if overflow in bit 7
+	SetFlag(C, temp > 255);
+
+	// Zero  Flag is set result is 0
+	// set if A = 0 
+	SetFlag(Z, (temp & 0x00FF) == 0);
+
+	// Set signed Overflow flag
+	// (+ve num) + (+ve num) = (-ve res) -> overflow
+	// (-ve num) + (-ve num) = (+ve res) -> overflow
+	SetFlag(V, (~((uint16_t)a ^ (uint16_t)fetched) & ((uint16_t)a ^ (uint16_t)temp)) & 0x0080);
+
+	// Set Negative flag
+	// Set if bit 7 is set
+	SetFlag(N, temp & 0x80);
+
+	// load 8 bit result into accumulator
+	a = temp & 0x00FF;
+
+	return 1;
+}
+
+// SBC
+// A,Z,C,N = A - M - (1 - C)
+// Flags: C, Z, V, N
+uint8_t CPU::SBC()
+{
+	fetch();
+	
+	// inverting the bottom 8 bits with xor
+	// To make a signed psitive number we can invert bits and add 1
+	// 10 = 00001010 -> 11110101 + 00000001 -> 11110110
+	uint16_t m = ((uint16_t)fetched ^ 0x00FF);
+
+	// We convert A = A - M - (1 - C) -> A = A + -1 *(M - (1 - C)) -> A = A + (-M + 1 + C) 
+	// We don't need to add 1 since we have already added 1 while converting to 2's complement
+	temp = (uint16_t)a + m + (uint16_t)GetFlag(C);
+	
+	// Same as addition
+	SetFlag(C, temp & 0xFF00);
+	SetFlag(Z, ((temp & 0x00FF) == 0));
+	SetFlag(V, (temp ^ (uint16_t)a) & (temp ^ m) & 0x0080);
+	SetFlag(N, temp & 0x0080);
+
+	a = temp & 0x00FF;
+
+	return 1;
+}
