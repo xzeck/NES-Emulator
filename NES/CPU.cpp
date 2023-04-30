@@ -776,3 +776,237 @@ uint8_t CPU::SBC()
 
 	return 1;
 }
+
+// AND
+// Flags:  A, Z, N
+uint8_t CPU::AND()
+{
+	fetch();
+	a = a & fetched;
+
+	// Set Zero Flag
+	SetFlag(Z, a == 0x00);
+
+	// Set Negative Flag
+	SetFlag(N, a & 0x80);
+
+	return 1;
+}
+
+// ASL
+// Flags: Z, C, N
+uint8_t CPU::ASL()
+{
+	fetch();
+
+	temp = (uint16_t)fetched << 1;
+
+	// Set Carry Flag
+	SetFlag(C, (temp & 0xFF00) > 0);
+	 
+	// Set Zero Flag
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+
+	// Set Negative Flag
+	SetFlag(N, temp & 0x80);
+
+	if (lookup[opcode].addrmode == &CPU::IMP)
+		a = temp & 0x00FF;
+	else
+		write(addr_abs, temp & 0x00FF);
+
+	return 0;
+}
+
+// BCC: Branch if Carry Clear
+// if(C == 0) program_counter = address
+
+uint8_t CPU::BCC()
+{
+
+	// 2 cycles
+	if (GetFlag(C) == 0)
+	{
+		// Add a cycle since branch succeeds 
+		cycles++;
+		addr_abs = program_counter + addr_rel;
+		
+		// Add another cycle if new page
+		if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+		program_counter = addr_abs;
+	}
+
+	return 0;
+}
+
+// BCS: Branch if Carry Set
+// If Carry flag is set add displacement to program counter
+uint8_t CPU::BCS()
+{
+	if (GetFlag(C) == 1)
+	{
+		cycles++;
+		addr_abs = program_counter + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+		program_counter = addr_abs;
+	}
+
+	return 0;
+}
+
+// BEQ: Branch if Equal
+// If Zero flag is set add displacement to program counter
+uint8_t CPU::BEQ()
+{
+	if (GetFlag(Z) == 1)
+	{
+		cycles++;
+		addr_abs = program_counter + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+		program_counter = addr_abs;
+	}
+
+	return 0;
+}
+
+// BIT: Bit Test
+// Used to test if bits are set in a target memory location
+// Mask patter in A is ANDed with value in memory to set or clear the zero flag
+// Bits 7 and 6 of the vlaue from memory are copied into N and V flag
+uint8_t CPU::BIT()
+{
+	fetch();
+	temp = a & fetched;
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(V, fetched & (1 << 6));
+	SetFlag(N, fetched & (1 << 7));
+
+	return 0;
+}
+
+// BMI: Branch if Minus
+// Add relative displacement to program counter if Negative flag is set
+uint8_t CPU::BMI()
+{
+	if (GetFlag(N) == 1)
+	{
+		cycles++;
+		addr_abs = program_counter + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+		program_counter = addr_abs;
+	}
+
+	return 0;
+}
+
+// BNE: Branch if Not Equal
+// If Zero flag is set add relative address to program counter
+uint8_t CPU::BNE()
+{
+	if (GetFlag(Z) == 0)
+	{
+		cycles++;
+		addr_abs = program_counter + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+		program_counter = addr_abs;
+	}
+
+	return 0;
+}
+
+//BPL: Branc if Positive
+// If negative flag is clear then add relative displacement
+uint8_t CPU::BPL()
+{
+	if (GetFlag(N) == 0)
+	{
+		cycles++;
+		addr_abs = program_counter + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+		program_counter = addr_abs;
+	}
+
+	return 0;
+}
+
+// BRK: Break
+// Generates an interrupt request
+// Steps:
+// 1. Program counter and processor status are pushed to the stack
+// 2. IRQ interrupt vector at FFFE/F is loaded into the program counter
+// 3. Break flag is set to 1
+
+uint8_t CPU::BRK()
+{
+	program_counter++;
+	SetFlag(I, 1);
+	
+	// Write program counter to the stack
+	write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+	stack_pointer--;
+	write(0x100 + stack_pointer, program_counter & 0x00FF);
+	stack_pointer--;
+
+	// Write processor status to the stack and set breka flag
+	SetFlag(B, 1);
+	write(0x0100 + stack_pointer, status);
+	stack_pointer--;
+	SetFlag(B, 0);
+
+	// Load IRQ Interrupt vector from 0xFFFE/F
+	program_counter = (uint16_t)read(0xFFFE) | ((uint16_t)read(0xFFFF) << 8);
+
+	return 0;
+}
+
+// BVC: Branch Overflow Clear
+// If Overflow fla is set then add relative displacement to program counter
+uint8_t CPU::BVC()
+{
+	if (GetFlag(V) == 0)
+	{
+		cycles++;
+		addr_abs = program_counter + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+		program_counter = addr_abs;
+	}
+
+	return 0;
+}
+
+//BVS: Branch if Overflow Set
+uint8_t CPU::BVS()
+{
+	if (GetFlag(V) == 1)
+	{
+		cycles++;
+		addr_abs = program_counter + addr_rel;
+
+		if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+		program_counter = addr_abs;
+	}
+
+	return 0;
+}
