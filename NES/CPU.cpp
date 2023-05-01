@@ -818,6 +818,16 @@ uint8_t CPU::ASL()
 	return 0;
 }
 
+/*
+The following line would repeat throughout the branch instrcutions:
+
+
+if ((addr_abs & 0xFF00) != (program_counter & 0xFF00))
+			cycles++;
+
+This is to check if the page is crossed or not to increment the cycle count
+*/
+
 // BCC: Branch if Carry Clear
 // if(C == 0) program_counter = address
 
@@ -1009,4 +1019,50 @@ uint8_t CPU::BVS()
 	}
 
 	return 0;
+}
+
+//CLC: Clear Carry Flag
+// Set Carry Flag to 0
+uint8_t CPU::CLC()
+{
+	SetFlag(C, false);
+	return 0;
+}
+
+//CLD: Clear Decimal Mode
+uint8_t CPU::CLD()
+{
+	SetFlag(D, false);
+	return 0;
+}
+
+//CLI: Clear Interrupt
+uint8_t CPU::CLI()
+{
+	SetFlag(I, false);
+	return 0;
+}
+
+uint8_t CPU::CLV()
+{
+	SetFlag(V, false);
+	return 0;
+}
+
+// CMP: Compare
+// Compares accumlator content with memory contents
+// C -> 1 : A >= M
+// Z -> 0 : A == M
+// N -> 1 : (A & 0x0080) == 1
+// Flags: N, C, Z
+uint8_t CPU::CMP()
+{
+	fetch();
+	temp = (uint16_t)a - (uint16_t)fetched;
+
+	SetFlag(C, a >= fetched);
+	SetFlag(Z, (temp & 0x00FF) == 0x0000);
+	SetFlag(N, (temp & 0x0080));
+
+	return 1;
 }
