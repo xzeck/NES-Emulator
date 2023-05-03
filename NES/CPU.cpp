@@ -1051,18 +1051,177 @@ uint8_t CPU::CLV()
 
 // CMP: Compare
 // Compares accumlator content with memory contents
+// Flags: N, C, Z
 // C -> 1 : A >= M
 // Z -> 0 : A == M
 // N -> 1 : (A & 0x0080) == 1
-// Flags: N, C, Z
 uint8_t CPU::CMP()
 {
 	fetch();
 	temp = (uint16_t)a - (uint16_t)fetched;
 
 	SetFlag(C, a >= fetched);
+	// A - M == 0
 	SetFlag(Z, (temp & 0x00FF) == 0x0000);
 	SetFlag(N, (temp & 0x0080));
 
 	return 1;
 }
+
+// CPX: Compare X Register
+// Compares contents of X register with memory held value
+// Flags: Z, C, N
+// C -> 1 : X >= M
+// Z -> 1 : X == M
+// N -> 1 : (X & 0x0080) == 1
+uint8_t CPU::CPX()
+{
+	fetch();
+	temp = (uint16_t)x - (uint16_t)fetched;
+
+	SetFlag(C, x >= fetched);
+	// X - M == 0
+	SetFlag(Z, (temp & 0x00FF) == 0x0000);
+	SetFlag(N, (temp & 0x0080));
+
+	return 0;
+}
+
+// CPY: Compare Y Register
+// Compares contents for Y regiser with memory held value
+// Flags: Z, C, N
+// C -> 1 : Y >= M
+// Z -> 1 : Y == M
+// N -> 1 : (Y & 0x0080) == 1
+uint8_t CPU::CPY()
+{
+	fetch();
+	temp = (uint16_t)y - (uint16_t)fetched;
+
+	SetFlag(C, y >= fetched);
+	// Y - M == 0
+	SetFlag(Z, (temp & 0x00FF) == 0x0000);
+	SetFlag(N, (temp & 0x0080));
+
+	return 0;
+}
+
+// DEC: Decrement value at memory location
+// M = M - 1
+// Flags: N, Z
+uint8_t CPU::DEC()
+{
+	fetch();
+	temp = fetched - 1;
+	write(addr_abs, temp & 0x00FF);
+	SetFlag(Z, (temp & 0x00FF) == 0x0000);
+	SetFlag(N, temp & 0x0080);
+
+	return 0;
+}
+
+// DEX: Decrement X Register
+// X = X - 1
+// Flags: N, Z
+uint8_t CPU::DEX()
+{
+	x--;
+	SetFlag(Z, x == 0x00);
+	SetFlag(N, x & 0x80);
+
+	return 0;
+}
+
+// DEY: Decrement Y Register
+// Y = Y - 1
+// Flags: N, Z
+uint8_t CPU::DEY()
+{
+	y--;
+	SetFlag(Z, y == 0x00);
+	SetFlag(N, y & 0x80);
+
+	return 0;
+}
+
+// EOR: Exclusive OR
+// A = A ^ M
+// Flags: Z, N
+uint8_t CPU::EOR()
+{
+	fetch();
+	a = a ^ fetched;
+	SetFlag(Z, a == 0x00);
+	SetFlag(N, a & 0x80);
+
+	return 1;
+}
+
+//INC: Increment value at memory location
+// M = M + 1
+// Flags: N, Z
+uint8_t CPU::INC()
+{
+	fetch();
+	temp = fetched + 1;
+	write(addr_abs, temp & 0x00FF);
+	SetFlag(Z, (temp & 0x00FF) == 0x0000);
+	SetFlag(N, temp & 0x0080);
+
+	return 0;
+}
+
+// INX: Increment X register
+// X = X + 1
+// Flags: N, Z
+uint8_t CPU::INX()
+{
+	x++;
+	SetFlag(Z, x == 0x00);
+	SetFlag(N, x & 0x80);
+
+	return 0;
+}
+
+// INY: Increment Y register
+// Y = Y + 1
+// Flags: N, Z
+
+uint8_t CPU::INY()
+{
+	y++;
+	SetFlag(Z, y == 0x00);
+	SetFlag(N, y & 0x80);
+
+	return 0;
+}
+
+// JMP: Jump to memory location
+uint8_t CPU::JMP()
+{
+	program_counter = addr_abs;
+	return 0;
+}
+
+//JSR: Jump to Sub Routine
+// psuhes address - 1 on to the stack
+// then sets the program counter to target memory address
+uint8_t CPU::JSR()
+{
+	// address - 1 
+	program_counter--;
+	
+	// push address - 1 to stack
+	// We do 2 push because program_counter is 16 bits
+	
+	write(0x0100 + stack_pointer, (program_counter >> 8) & 0x00FF);
+	stack_pointer--;
+	write(0x0100 + stack_pointer, program_counter & 0x00FF);
+	stack_pointer--;
+
+	// Set program counter to target
+	program_counter = addr_abs;
+
+	return 0;
+}
+
