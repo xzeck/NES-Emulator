@@ -1225,3 +1225,111 @@ uint8_t CPU::JSR()
 	return 0;
 }
 
+//LDA: Load Accumulator
+// Loads a byte of memory into the accumulator
+// Falgs: Z, N
+uint8_t CPU::LDA()
+{
+	fetch();
+	a = fetched;
+
+	// Set Zero flag
+	SetFlag(Z, a == 0x00);
+
+	// Set Negative flag
+	SetFlag(N, a & 0x80);
+
+	return 1;
+}
+
+// LDX: Load X register
+// Loads a byte of memory into the X register
+// Flags: Z, N
+uint8_t CPU::LDX()
+{
+	fetch();
+	x = fetched;
+	SetFlag(Z, x == 0x00);
+	SetFlag(N, x & 0x80);
+
+	return 1;
+}
+
+// LDY: Load Y Register
+// Loads a byt  of memory into the Y register
+// Flags: Z, N
+uint8_t CPU::LDY()
+{
+	fetch();
+	y = fetched;
+	SetFlag(Z, y == 0x00);
+	SetFlag(N, y & 0x80);
+
+	return 1;
+}
+
+// LSR: Logical Shift Right
+// Each of the bits in accumulator or memory is shift one place to the right.
+// The bit that was in bit 0 is shifted into carry flag
+//  Bit 7 is set to zero
+uint8_t CPU::LSR()
+{
+	fetch();
+	// Calculate carry before shifting
+	SetFlag(C, fetched & 0x0001);
+
+	// Shift one bit to right
+	temp = fetched >> 1;
+
+	// Check if zero
+	SetFlag(Z, (temp & 0x00FF) == 0x0000);
+
+	// Check if negative
+	SetFlag(N, temp & 0x0080);
+
+	// Check addressing mode
+	// if implied addressing then store the result into accumulator
+	// else write into to memory
+	if (lookup[opcode].addrmode == &CPU::IMP)
+		a = temp & 0x00FF;
+	else
+		write(addr_abs, temp & 0x00FF);
+
+	return 0;
+}
+
+// NOP: No Operation
+// Doesn't make any changes to processor other than normal incrementing of the program counter to next instruction
+// Flags: No flags affected
+
+uint8_t CPU::NOP()
+{
+	switch (opcode)
+	{
+	case 0x1C:
+	case 0x3C:
+	case 0x5C:
+	case 0x7C:
+	case 0xDC:
+	case 0xFC:
+		return 1;
+		break;
+	}
+
+	return 0;
+}
+
+// ORA: Logical Inclusive OR
+// Bit by bit OR performed on the content of accumulator using the content of a byte in memory
+// A = A | M
+// Flags: Z, N
+uint8_t CPU::ORA()
+{
+	fetch();
+	a = a | fetched;
+	SetFlag(Z, a == 0x00);
+	SetFlag(N, a & 0x80);
+
+	return 1;
+}
+
