@@ -1304,6 +1304,7 @@ uint8_t CPU::LSR()
 
 uint8_t CPU::NOP()
 {
+	// opcodes list: https://wiki.nesdev.com/w/index.php/CPU_unofficial_opcodes
 	switch (opcode)
 	{
 	case 0x1C:
@@ -1333,3 +1334,273 @@ uint8_t CPU::ORA()
 	return 1;
 }
 
+// PHA: Push accumulator to stack
+uint8_t CPU::PHA()
+{
+	write(0x0100 + stack_pointer, a);
+	stack_pointer--;
+	return 0;
+}
+
+// PHP: Push status flag to Stack
+uint8_t CPU::PHP()
+{
+	write(0x0100 + stack_pointer, status | B | U);
+	SetFlag(B, 0);
+	SetFlag(U, 0);
+	stack_pointer--;
+
+	return 0;
+}
+
+// PLA: Pull Accumulator
+// pulls an 8 bit value form the stack into the accumulator.
+// Flags: Z, N
+uint8_t CPU::PLA()
+{
+	stack_pointer++;
+	a = read(0x0100 + stack_pointer);
+	SetFlag(Z, a == 0x00);
+	SetFlag(N, a & 0x80);
+
+	return 0;
+}
+
+// PLP: Pull Processor Status
+// Pulls an 8 bit value from the stack into the processor flags
+// The flags will take on new state  determined by the value pulled
+uint8_t CPU::PLP()
+{
+	stack_pointer++;
+	status = read(0x0100 + stack_pointer);
+	SetFlag(U, 1);
+
+	return 0;
+}
+
+// ROL: Rotate Left
+// Move each of the bits in Accumulator or Memory to left
+// Bit 0 is filled with current value of carry flag
+// bit 7 becomes new carry flag value
+uint8_t CPU::ROL()
+{
+	fetch();
+	// Rotate Left and add carry flag to bit 7
+	temp = (uint16_t)(fetched << 1) | GetFlag(C);
+	
+	// Set carry flag
+	SetFlag(C, temp & 0xFF00);
+
+	// Set Zero flag
+	SetFlag(Z, (temp & 0x00FF) == 0x0000);
+
+	// Set Negative flag
+	SetFlag(N, temp & 0x0080);
+
+	// Check addressing mode and choose where to save the data
+	if (lookup[opcode].addrmode == &CPU::IMP)
+		a = temp & 0x00FF;
+	else
+		write(addr_abs, temp & 0x00FF);
+
+	return 0;
+}
+
+// ROR: Rotate Right
+// Move each bits in accumulator or memory to right
+// Bit 7 is filled with current value of carry flag
+// bit 0 becomes new carry flag value
+uint8_t CPU::ROR()
+{
+	fetch();
+
+	temp = (uint16_t)(GetFlag(C) << 7) | (fetched >> 1);
+
+	SetFlag(C, fetched & 0x01);
+	SetFlag(Z, (temp & 0x00FF) == 0x00);
+	SetFlag(N, temp & 0x0080);
+
+	if (lookup[opcode].addrmode == CPU::IMP)
+		a = temp & 0x00FF;
+	else
+		write(addr_abs, temp & 0x00FF);
+
+	return 0;
+}
+
+//RTI: Return from Interrupt
+// Used at the end for interrupt processing routine
+// It pulls the processor flags from the stack followed by the program counter
+uint8_t CPU::RTI()
+{
+	stack_pointer++;
+	// read status from location
+	status = read(0x0100 + stack_pointer);
+
+	// Invert break flag
+	status &= ~B;
+
+	// Invert unused flag
+	status &= ~U;
+
+	// increment stack pointer to get data for program  counter
+	stack_pointer++;
+
+	// Read twice because program counter is 16 bit long
+	program_counter = (uint16_t)read(0x0100 + stack_pointer);
+	stack_pointer++;
+	program_counter |= (uint16_t)read(0x0100 + stack_pointer) << 8;
+}
+
+// RTS: Return from Subroutine
+// used at the end of subroutine to return to the calling routine
+// Pulls program counter - 1 from the stack
+uint8_t CPU::RTS()
+{
+	// reading data into program counter
+	// Reading twice because program counter is 16 bit
+	stack_pointer++;
+	program_counter = (uint16_t)read(0x0100 + stack_pointer);
+	stack_pointer++;
+	program_counter |= (uint16_t)read(0x0100 + stack_pointer) << 8;
+
+	program_counter++;
+
+	return 0;
+}
+
+// SEC: Set Carry Flag
+// C = 1
+// Flags: C
+uint8_t CPU::SEC()
+{
+	SetFlag(C, 1);
+	return 0;
+}
+
+// SED: Set Decimal Flag
+// D = 1
+// Flags: D
+uint8_t CPU::SED()
+{
+	SetFlag(D, 1);
+	return 0;
+}
+
+// SEI: Set Interrupt disable
+// I = 1
+// Flags: I
+uint8_t CPU::SEI()
+{
+	SetFlag(I, 1);
+	return 0;
+}
+
+
+// STA: Store Accumulator
+// Stores contents of accumulator in memory
+// M = A
+uint8_t CPU::STA()
+{
+	write(addr_abs, a);
+	return 0;
+}
+
+// STX: Store X Register
+// Stores contents of X register into memory
+// M = X
+uint8_t CPU::STX()
+{
+	write(addr_abs, x);
+	return 0;
+}
+
+// STY: Store Y Register
+// M = Y
+// Stores contents of Y register into memory
+uint8_t CPU::STY()
+{
+	write(addr_abs, y);
+	return 0;
+}
+
+// TAX: Transfer Accumulator to X
+// Copies currnet contens of accumulator into X register
+// X = A
+// Sets Z and N flags as appropriate
+// Flags: Z, N
+uint8_t CPU::TAX()
+{
+	x = a;
+	SetFlag(Z, x == 0x00);
+	SetFlag(N, x & 0x80);
+
+	return 0;
+}
+
+// TAY: Transfer Accumulator to Y
+// Copies current content of accumulator into Y register
+// Y = A
+// Flags: Z, N
+uint8_t CPU::TAY()
+{
+	y = a;
+	SetFlag(Z, y == 0x00);
+	SetFlag(N, y & 0x80);
+
+	return 0;
+}
+
+// TSX: Transfer Stack pointer to X Register
+// Copies currnet contents of stack pointer into X register
+// X = stack pointer
+// Flags: Z, N
+uint8_t CPU::TSX()
+{
+	x = stack_pointer;
+	SetFlag(Z, x == 0x00);
+	SetFlag(N, x & 0x80);
+
+	return 0;
+}
+
+// TXA: Transfer X register into accumulator
+// Copies current contnets of X register into accumulator
+// A = X
+// Flags: Z, N
+uint8_t CPU::TXA()
+{
+	a = x;
+	SetFlag(Z, a == 0x00);
+	SetFlag(N, a & 0x80);
+
+	return 0;
+}
+
+// TXS: Transfer X register into stack pointer
+// Copies current content of X register into stack pointer
+// stack_pointer = X
+uint8_t CPU::TXS()
+{
+	stack_pointer = x;
+	return 0;
+}
+
+// TYA: Transfer Y to accumulator
+// Copies current  contents of Y register into accumulator
+// A = Y
+// Flags: Z, N
+uint8_t CPU::TYA()
+{
+	a = y;
+	SetFlag(Z, a == 0x00);
+	SetFlag(N, a & 0x80);
+
+	return 0;
+}
+
+// illegal opcode
+uint8_t CPU::XXX()
+{
+	return 0;
+}
