@@ -1604,3 +1604,9 @@ uint8_t CPU::XXX()
 {
 	return 0;
 }
+
+// helper function
+bool CPU::complete()
+{
+	return cycles == 0;
+}
